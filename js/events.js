@@ -209,7 +209,6 @@ function initCapturing() {
 
 							if (eventsInfo.touch.activeEvents.touchDown) {
 								eventsInfo.touch.activeEvents.touchDown = false;
-								eventsInfo.touch.activeEvents.touchMoving = false;
 							} else {
 								$("#touch-status").hide();
 								$("#touch-err-not-full").show();
@@ -234,7 +233,7 @@ function initCapturing() {
 
 						if (event.type === 'scrollend') {
 							if (isMobile) {
-								if (Date.now() - eventsInfo.touch.endTime > 20) {
+								if (!eventsInfo.touch.activeEvents.touchMoving) {
 									$("#scroll-status").hide();
 									$("#scroll-err-flat").text(Date.now() - eventsInfo.touch.endTime).show()
 								}
