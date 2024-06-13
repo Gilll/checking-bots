@@ -235,7 +235,7 @@ function initCapturing() {
 							if (isMobile) {
 								if (!eventsInfo.touch.activeEvents.touchMoving) {
 									$("#scroll-status").hide();
-									$("#scroll-err-flat").text(Date.now() - eventsInfo.touch.endTime).show()
+									$("#scroll-err-flat").text('Сролл без прикосновений').show()
 								}
 							} else {
 								if (!eventsInfo.scroll.wheel) {
