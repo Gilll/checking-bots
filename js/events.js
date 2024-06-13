@@ -187,8 +187,6 @@ function initCapturing() {
 
 						if (event.type === 'touchstart') {
 							$("#touch-status").text("Ok")
-							$("#click-status").hide().prev().hide();
-							$("#click-status").next().hide();
 							if (!event.isTrusted) {
 								$("#touch-status").hide();
 								$("#touch-err-trusted").show();
@@ -238,7 +236,7 @@ function initCapturing() {
 							if (isMobile) {
 								if (Date.now() - eventsInfo.touch.endTime > 20) {
 									$("#scroll-status").hide();
-									$("#scroll-err-flat").show()
+									$("#scroll-err-flat").text(Date.now() - eventsInfo.touch.endTime).show()
 								}
 							} else {
 								if (!eventsInfo.scroll.wheel) {
