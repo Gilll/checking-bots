@@ -4,7 +4,37 @@ function initCapturing() {
 		recordTime,
 		recordingStart,
 		recordingDuration,
-		events = {}
+		events = {};
+
+	let eventsInfo = {
+		mouse: {
+			mouseIsMoving: false,
+			lastX: 0,
+			offset: document.body.offsetWidth
+		},
+		click: {
+			notTrusted: false,
+			downTime: 0,
+			upTime: 0,
+			activeEvents: {
+				mouseDown: false,
+				mouseUp: false
+			}
+		},
+		touch: {
+			notTrusted: false,
+			downTime: 0,
+			upTime: 0,
+			activeEvents: {
+				touchDown: false,
+				touchMoving: false
+			}
+		},
+		scroll: {
+			notTrusted: false,
+			wheel: false
+		}
+	}
 
 	const startRecording = () => {
 		recordTime = 0
@@ -104,11 +134,113 @@ function initCapturing() {
 
 	return {
 		delegateEvents: function () {
+			//setInterval(() => { $("h1").click(); },1000)
 
 			Object.keys(window).forEach(key => {
 				if (/^on/.test(key)) {
 					window.addEventListener(key.slice(2), event => {
-						if (isRecording) {
+						if (event.type !== 'message') {
+							console.log(event.type);
+						}
+						if (event.type === 'mousemove') {
+							eventsInfo.mouseIsMoving = true;
+							eventsInfo.mouse.lastX = event.clientX
+							$("#mouse-status").text("Ok");
+							if (!event.isTrusted) {
+								$("#mouse-status").hide();
+								$("#mouse-err-trusted").show();
+							}
+						}
+						if (event.type === 'click') {
+							$("#click-status").text("Ok");
+							if (!event.isTrusted) {
+								$("#click-status").hide();
+								$("#click-err-trusted").show();
+							}
+							if (eventsInfo.click.activeEvents.mouseDown && eventsInfo.click.activeEvents.mouseUp) {
+								eventsInfo.click.activeEvents.mouseDown = false;
+								eventsInfo.click.activeEvents.mouseUp = false;
+							} else {
+								$("#click-status").hide();
+								$("#click-err-not-full").show();
+							}
+						}
+						if (event.type === 'mousedown') {
+							eventsInfo.click.downTime = Date.now();
+							eventsInfo.click.activeEvents.mouseDown = true;
+						}
+						if (event.type === 'mouseup') {
+							eventsInfo.click.upTime = Date.now();
+							if (eventsInfo.click.upTime && eventsInfo.click.downTime) {
+								let diff = eventsInfo.click.upTime - eventsInfo.click.downTime
+								if (diff < 16) {
+									$("#click-status").hide();
+									$("#click-err-speed").text("Кнопка нажата/отпущена за " + diff + "ms" ).show();
+								}
+							}
+							eventsInfo.click.activeEvents.mouseUp = true;
+						}
+
+						if (event.type === 'touchstart') {
+							$("#touch-status").text("Ok")
+							if (!event.isTrusted) {
+								$("#touch-status").hide();
+								$("#touch-err-trusted").show();
+							}
+							eventsInfo.touch.downTime = Date.now();
+							eventsInfo.touch.activeEvents.touchDown = true;
+						}
+						if (event.type === 'touchend') {
+							if (!event.isTrusted) {
+								$("#touch-status").hide();
+								$("#touch-err-trusted").show();
+							}
+							if (eventsInfo.touch.downTime) {
+								let diff = Date.now() - eventsInfo.touch.downTime
+								if (diff < 16) {
+									$("#touch-status").hide();
+									$("#touch-err-speed").text("Прикосновение нажато/отпущено за " + diff + "ms" ).show();
+								}
+							}
+
+							if (eventsInfo.touch.activeEvents.touchDown) {
+								eventsInfo.touch.activeEvents.touchDown = false;
+								eventsInfo.touch.activeEvents.touchMoving = false;
+							} else {
+								$("#touch-status").hide();
+								$("#touch-err-not-full").show();
+							}
+						}
+
+						if (event.type === 'touchmove') {
+							eventsInfo.touch.activeEvents.touchMoving = true;
+						}
+
+						if (event.type === 'wheel') {
+							eventsInfo.scroll.wheel = true;
+						}
+
+						if (event.type === 'scroll') {
+							if (!event.isTrusted) {
+								$("#scroll-status").hide();
+								$("#scroll-err-trusted").show();
+							}
+						}
+
+						if (event.type === 'scrollend') {
+							if (!eventsInfo.scroll.wheel) {
+								if ((eventsInfo.mouse.lastX < eventsInfo.mouse.offset)) {
+									if (!eventsInfo.touch.activeEvents.touchMoving) {
+										$("#scroll-status").hide();
+										$("#scroll-err-flat").show()
+									}
+								}
+							}
+							eventsInfo.scroll.wheel = false;
+							$("#scroll-status").text('Ok')
+						}
+
+						/*if (isRecording) {
 							let parsedEvents = {}
 							if (!events[event.type]) {
 								events[event.type] = []
@@ -119,12 +251,12 @@ function initCapturing() {
 								}
 							}
 							events[event.type].push(parsedEvents)
-						}
+						}*/
 					});
 				}
 			});
 
-			$("#start-recoding").click(function () {
+			/*$("#start-recoding").click(function () {
 				startRecording()
 			})
 
@@ -148,48 +280,70 @@ function initCapturing() {
 
 			$("#save-to-file").click(function () {
 				writeFile("data.txt", JSON.stringify(events));
-			})
+			})*/
 		}
 	}
 }
 
 $(document).ready(function () {
 	$("body").append(`
-				<div id="capture-events">
-					<div id="save-stats">
-						<span id="start-recoding">start</span>
-						<span id="stop-recoding">stop</span>
-						<span id="save-to-file">save</span>
+				<div id="checking-events">
+					<div class="event-title">Клики</div>
+					<div class="event-status" id="click-status">Не обнаружено</div>
+					<div class="err-list">
+						<div class="event-err" id="click-err-trusted">Не инициирован пользователем</div>
+						<div class="event-err" id="click-err-speed"></div>
+						<div class="event-err" id="click-err-not-full">Не зафиксировано нажатия левого клика</div>
+					</div>
+					<div class="event-title">Движение мыши</div>
+					<div class="event-status" id="mouse-status">Не обнаружено</div>
+					<div class="err-list">
+						<div class="event-err" id="mouse-err-trusted">Не инициирован пользователем</div>
+					</div>
+					<div class="event-title">Скролл</div>
+					<div class="event-status" id="scroll-status">Не обнаружено</div>
+					<div class="err-list">
+						<div class="event-err" id="scroll-err-trusted">Не инициирован пользователем</div>
+						<div class="event-err" id="scroll-err-flat">Скролл без колесика мыши или интефейса</div>
+					</div>
+					<div class="event-title">Тач</div>
+					<div class="event-status" id="touch-status">Не обнаружено</div>
+					<div class="err-list">
+						<div class="event-err" id="touch-err-trusted">Не инициирован пользователем</div>
+						<div class="event-err" id="touch-err-speed"></div>
+						<div class="event-err" id="touch-err-not-full">Не зафиксировано нажатия</div>
 					</div>
 				</div>
 				<style>
-					#save-to-file {
-						display: none;
-					}
-
-					#stop-recoding {
-						display: none;
-					}
-
-					#save-stats {
+					#checking-events {
 						position: fixed;
 						background-color: black;
 						color: white;
-						font-size: 18px;
+						font-size: 16px;
 						z-index: 999999999999999999999;
 						padding: 0.5em 1em;
 						cursor: pointer;
 						border-bottom-right-radius: 5px;
 						top: 0;
-						left: 0;
+						right: 0;
+						width: 15rem;
 					}
 
-					#save-stats span {
-						margin-right: 1em;
+					.event-title {
+						margin-bottom: 0.5rem;
 					}
 
-					#save-stats span:last-child {
-						margin-right: 0;
+					.err-list {
+						margin-bottom: 1.5rem;
+						color: darkred;
+					}
+
+					.event-err {
+						margin-bottom: 0.5rem;
+						display: none;
+					}
+					.event-err:last-child {
+						margin-bottom: 0;
 					}
 				</style>
 			`)
