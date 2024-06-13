@@ -6,6 +6,9 @@ function initCapturing() {
 		recordingDuration,
 		events = {};
 
+	let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+	console.log(isMobile);
+
 	let eventsInfo = {
 		mouse: {
 			mouseIsMoving: false,
@@ -25,6 +28,7 @@ function initCapturing() {
 			notTrusted: false,
 			downTime: 0,
 			upTime: 0,
+			endTime: 0,
 			activeEvents: {
 				touchDown: false,
 				touchMoving: false
@@ -171,7 +175,7 @@ function initCapturing() {
 						}
 						if (event.type === 'mouseup') {
 							eventsInfo.click.upTime = Date.now();
-							if (eventsInfo.click.upTime && eventsInfo.click.downTime) {
+							if (eventsInfo.click.upTime && eventsInfo.click.downTime && !isMobile) {
 								let diff = eventsInfo.click.upTime - eventsInfo.click.downTime
 								if (diff < 16) {
 									$("#click-status").hide();
@@ -183,6 +187,8 @@ function initCapturing() {
 
 						if (event.type === 'touchstart') {
 							$("#touch-status").text("Ok")
+							$("#click-status").hide().prev().hide();
+							$("#click-status").next().hide();
 							if (!event.isTrusted) {
 								$("#touch-status").hide();
 								$("#touch-err-trusted").show();
@@ -210,6 +216,7 @@ function initCapturing() {
 								$("#touch-status").hide();
 								$("#touch-err-not-full").show();
 							}
+							eventsInfo.touch.endTime = Date.now();
 						}
 
 						if (event.type === 'touchmove') {
@@ -228,9 +235,14 @@ function initCapturing() {
 						}
 
 						if (event.type === 'scrollend') {
-							if (!eventsInfo.scroll.wheel) {
-								if ((eventsInfo.mouse.lastX < eventsInfo.mouse.offset)) {
-									if (!eventsInfo.touch.activeEvents.touchMoving) {
+							if (isMobile) {
+								if (Date.now() - eventsInfo.touch.endTime > 20) {
+									$("#scroll-status").hide();
+									$("#scroll-err-flat").show()
+								}
+							} else {
+								if (!eventsInfo.scroll.wheel) {
+									if ((eventsInfo.mouse.lastX < eventsInfo.mouse.offset)) {
 										$("#scroll-status").hide();
 										$("#scroll-err-flat").show()
 									}
