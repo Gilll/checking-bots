@@ -13,7 +13,10 @@ function initCapturing() {
 		mouse: {
 			mouseIsMoving: false,
 			lastX: 0,
-			offset: document.body.offsetWidth
+			lastY: 0,
+			offset: document.body.offsetWidth,
+			speedX: [],
+			speedY: []
 		},
 		click: {
 			notTrusted: false,
@@ -22,6 +25,14 @@ function initCapturing() {
 			activeEvents: {
 				mouseDown: false,
 				mouseUp: false
+			}
+		},
+		keyboard: {
+			downTime: 0,
+			upTime: 0,
+			activeEvents: {
+				keyDown: false,
+				keyPress: false
 			}
 		},
 		touch: {
@@ -139,6 +150,29 @@ function initCapturing() {
 	return {
 		delegateEvents: function () {
 			//setInterval(() => { $("h1").click(); },1000)
+			let page = $("#page");
+			let dotPos = ''
+
+			const canvas = document.getElementById("pageCanvas");
+			const context = canvas.getContext("2d");
+
+			context.canvas.width = page.width()
+			context.canvas.height = page.height()
+
+			const w = canvas.width;
+			const h = canvas.height;
+
+			context.beginPath();
+			context.moveTo(0, 0);
+			context.strokeStyle = "red";
+
+			const getAverage = (numbers) => {
+				let sum = 0
+				for (let i = 0; i < numbers.length; i += 1) {
+					sum += numbers[i]
+				}
+				return (sum / numbers.length).toFixed(1);
+			};
 
 			Object.keys(window).forEach(key => {
 				if (/^on/.test(key)) {
@@ -146,9 +180,46 @@ function initCapturing() {
 						if (event.type !== 'message') {
 							console.log(event.type);
 						}
+						if (event.type === 'keydown') {
+							$("#keyboard-status").text("Ok");
+							if (!event.isTrusted) {
+								$("#keyboard-status").hide();
+								$("#keyboard-err-trusted").show();
+							}
+							eventsInfo.keyboard.downTime = Date.now();
+							eventsInfo.keyboard.activeEvents.keyDown = true;
+						}
+						if (event.type === 'keypress') {
+							eventsInfo.keyboard.activeEvents.keyPress = true;
+						}
+						if (event.type === 'keyup') {
+							eventsInfo.keyboard.upTime = Date.now();
+							if (eventsInfo.keyboard.upTime && eventsInfo.keyboard.downTime && !isMobile) {
+								let diff = eventsInfo.keyboard.upTime - eventsInfo.keyboard.downTime
+								$("#keyboard-speed").text('speed ' + diff + 'ms')
+								if (diff < 16) {
+									$("#keyboard-status").hide();
+									$("#keyboard-err-speed").text("Кнопка нажата/отпущена за " + diff + "ms" ).show();
+								}
+							}
+						}
 						if (event.type === 'mousemove') {
 							eventsInfo.mouseIsMoving = true;
+							if (eventsInfo.mouse.lastX > 0 && eventsInfo.mouse.lastY > 0) {
+								context.lineTo(event.pageX, event.pageY);
+								context.stroke();
+							} else {
+								context.moveTo(event.pageX, event.pageY);
+							}
 							eventsInfo.mouse.lastX = event.clientX
+							eventsInfo.mouse.lastY = event.clientY
+							eventsInfo.mouse.speedX.push(Math.abs(event.movementX))
+							eventsInfo.mouse.speedY.push(Math.abs(event.movementY))
+							//dotPos = 'top:' + event.clientY + 'px;left:' + event.clientX + 'px'
+							//page.append("<div class='mouseDot' style='" + dotPos + "'></div>")
+							$("#mouse-speed-x").text('av-speed-x ' + getAverage(eventsInfo.mouse.speedX))
+							$("#mouse-speed-y").text('av-speed-y ' + getAverage(eventsInfo.mouse.speedY))
+
 							$("#mouse-status").text("Ok");
 							if (!event.isTrusted) {
 								$("#mouse-status").hide();
@@ -177,6 +248,7 @@ function initCapturing() {
 							eventsInfo.click.upTime = Date.now();
 							if (eventsInfo.click.upTime && eventsInfo.click.downTime && !isMobile) {
 								let diff = eventsInfo.click.upTime - eventsInfo.click.downTime
+								$("#click-speed").text('speed ' + diff + 'ms')
 								if (diff < 16) {
 									$("#click-status").hide();
 									$("#click-err-speed").text("Кнопка нажата/отпущена за " + diff + "ms" ).show();
@@ -232,6 +304,7 @@ function initCapturing() {
 						}
 
 						if (event.type === 'scrollend') {
+							console.log(event)
 							if (isMobile) {
 								if (!eventsInfo.touch.activeEvents.touchMoving) {
 									$("#scroll-status").hide();
@@ -297,8 +370,10 @@ function initCapturing() {
 $(document).ready(function () {
 	$("body").append(`
 				<div id="checking-events">
+					<div class="event-title">navigator.webdriver ${navigator.webdriver}</div>
 					<div class="event-title">Клики</div>
 					<div class="event-status" id="click-status">Не обнаружено</div>
+					<div class="event-status" id="click-speed"></div>
 					<div class="err-list">
 						<div class="event-err" id="click-err-trusted">Не инициирован пользователем</div>
 						<div class="event-err" id="click-err-speed"></div>
@@ -306,6 +381,8 @@ $(document).ready(function () {
 					</div>
 					<div class="event-title">Движение мыши</div>
 					<div class="event-status" id="mouse-status">Не обнаружено</div>
+					<div class="event-status" id="mouse-speed-x"></div>
+					<div class="event-status" id="mouse-speed-y"></div>
 					<div class="err-list">
 						<div class="event-err" id="mouse-err-trusted">Не инициирован пользователем</div>
 					</div>
@@ -315,12 +392,19 @@ $(document).ready(function () {
 						<div class="event-err" id="scroll-err-trusted">Не инициирован пользователем</div>
 						<div class="event-err" id="scroll-err-flat">Скролл без колесика мыши или интефейса</div>
 					</div>
+					<div class="event-title">Клавиатура</div>
+					<div class="event-status" id="keyboard-status">Не обнаружено</div>
+					<div class="event-status" id="keyboard-speed"></div>
+					<div class="err-list">
+						<div class="event-err" id="keyboard-err-trusted">Не инициирован пользователем</div>
+						<div class="event-err" id="keyboard-err-speed"></div>
+						<div class="event-err" id="keyboard-err-not-full">Не зафиксировано нажатия клавиши</div>
+					</div>
 					<div class="event-title">Тач</div>
 					<div class="event-status" id="touch-status">Не обнаружено</div>
 					<div class="err-list">
 						<div class="event-err" id="touch-err-trusted">Не инициирован пользователем</div>
 						<div class="event-err" id="touch-err-speed"></div>
-						<div class="event-err" id="touch-err-not-full">Не зафиксировано нажатия</div>
 					</div>
 				</div>
 				<style>
